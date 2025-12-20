@@ -1,0 +1,126 @@
+---
+alias: GitHub Integration Flow
+description: Complete flow of GitHub authentication, API interactions, Library workspace management, and publishing workflow in BlueKit
+tags:
+  - github
+  - authentication
+  - library
+  - publishing
+  - architecture
+---
+```mermaid
+graph TB
+    subgraph Auth["🔐 Authentication Flow"]
+        Start[User Clicks Get Started]
+        AuthScreen[GitHub Auth Screen]
+        DeviceFlow[Start Device Flow]
+        UserCode[Display User Code]
+        OpenGitHub[Open GitHub in Browser]
+        UserAuth[User Authorizes on GitHub]
+        PollToken[Poll for Access Token]
+        StoreToken[Store Token in Keychain]
+        FetchUser[Fetch User Info from GitHub API]
+    end
+
+    subgraph Keychain["🔑 Keychain Storage"]
+        KeychainStore[(OS Keychain)]
+        KeychainRetrieve[Retrieve Token]
+    end
+
+    subgraph GitHubAPI["🌐 GitHub API Client"]
+        APIClient[GitHubClient]
+        GetUser[Get User Info]
+        GetRepos[Get User Repos]
+        GetFile[Get File Contents]
+        CreateFile[Create/Update File]
+        DeleteFile[Delete File]
+        GetTree[Get Tree/Directory]
+    end
+
+    subgraph Library["📚 Library Workspace"]
+        CreateWorkspace[Create Workspace]
+        WorkspaceDB[(Database)]
+        ListWorkspaces[List Workspaces]
+        LinkRepo[Link to GitHub Repo]
+    end
+
+    subgraph Publishing["📤 Publishing Flow"]
+        SelectArtifacts[Select Artifacts to Publish]
+        MapPaths[Map Local to Library Paths]
+        CheckConflicts[Check File Conflicts]
+        PrepareFiles[Prepare File Contents]
+        BatchPublish[Batch Create/Update Files]
+        UpdateMetadata[Update Artifact Metadata]
+        StoreArtifact[Store in Database]
+    end
+
+    subgraph GitOps["⚙️ Git Operations"]
+        InitRepo[Initialize Repo]
+        AddRemote[Add Remote]
+        Commit[Create Commit]
+        Push[Push to GitHub]
+    end
+
+    %% Authentication Flow
+    Start --> AuthScreen
+    AuthScreen --> DeviceFlow
+    DeviceFlow --> UserCode
+    UserCode --> OpenGitHub
+    OpenGitHub --> UserAuth
+    UserAuth --> PollToken
+    PollToken -->|Token Received| StoreToken
+    StoreToken --> KeychainStore
+    KeychainStore --> FetchUser
+    FetchUser --> APIClient
+
+    %% Keychain Operations
+    KeychainStore -.->|Store| KeychainRetrieve
+    KeychainRetrieve -.->|Retrieve| APIClient
+
+    %% GitHub API Operations
+    APIClient -->|With Token| GetUser
+    APIClient -->|With Token| GetRepos
+    APIClient -->|With Token| GetFile
+    APIClient -->|With Token| CreateFile
+    APIClient -->|With Token| DeleteFile
+    APIClient -->|With Token| GetTree
+
+    %% Library Workspace Management
+    CreateWorkspace --> WorkspaceDB
+    ListWorkspaces --> WorkspaceDB
+    CreateWorkspace --> LinkRepo
+    LinkRepo --> APIClient
+
+    %% Publishing Flow
+    SelectArtifacts --> MapPaths
+    MapPaths --> CheckConflicts
+    CheckConflicts -->|Check SHA| GetFile
+    CheckConflicts --> PrepareFiles
+    PrepareFiles --> BatchPublish
+    BatchPublish --> CreateFile
+    BatchPublish --> UpdateMetadata
+    UpdateMetadata --> StoreArtifact
+    StoreArtifact --> WorkspaceDB
+
+    %% Git Operations (Future)
+    BatchPublish -.->|Optional| Commit
+    Commit -.-> Push
+    Push -.->|HTTPS Auth| APIClient
+
+    %% Styling with BlueKit dark theme colors
+    classDef authGroup fill:#1e3a8a,stroke:#4287f5,stroke-width:2px
+    classDef keychainGroup fill:#0f766e,stroke:#4287f5,stroke-width:2px
+    classDef apiGroup fill:#6b21a8,stroke:#4287f5,stroke-width:2px
+    classDef libraryGroup fill:#c2410c,stroke:#4287f5,stroke-width:2px
+    classDef publishGroup fill:#4c1d95,stroke:#4287f5,stroke-width:2px
+    classDef gitGroup fill:#155e75,stroke:#4287f5,stroke-width:2px
+    classDef storageGroup fill:#a16207,stroke:#4287f5,stroke-width:2px
+
+    class Start,AuthScreen,DeviceFlow,UserCode,OpenGitHub,UserAuth,PollToken,StoreToken,FetchUser authGroup
+    class KeychainStore,KeychainRetrieve keychainGroup
+    class APIClient,GetUser,GetRepos,GetFile,CreateFile,DeleteFile,GetTree apiGroup
+    class CreateWorkspace,ListWorkspaces,LinkRepo libraryGroup
+    class SelectArtifacts,MapPaths,CheckConflicts,PrepareFiles,BatchPublish,UpdateMetadata publishGroup
+    class InitRepo,AddRemote,Commit,Push gitGroup
+    class WorkspaceDB,StoreArtifact storageGroup
+```
