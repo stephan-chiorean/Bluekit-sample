@@ -1,0 +1,146 @@
+---
+alias: GitHub Library Publishing Flow
+description: Complete flow of publishing artifacts to GitHub repositories through the Library feature, showing frontend UI, backend processing, GitHub API operations, and database catalog/variation management
+tags:
+  - github
+  - library
+  - publishing
+  - architecture
+  - flow
+---
+```mermaid
+graph TB
+    subgraph Frontend["🖥️ Frontend React/TypeScript"]
+        Dialog[PublishToLibraryDialog]
+        SelectWorkspace[Select Workspace]
+        SelectItems[Select Artifacts]
+        ScanResources[Scan Project Resources]
+        MatchResources[Match Items to Resources]
+        ShowResults[Display Publish Results]
+    end
+
+    subgraph IPC["📡 IPC Layer Tauri"]
+        InvokeScan[invokeScanProjectResources]
+        InvokeGetResources[invokeGetProjectResources]
+        InvokePublish[invokePublishResource]
+        InvokeListWorkspaces[invokeLibraryListWorkspaces]
+    end
+
+    subgraph Backend["🦀 Backend Rust"]
+        subgraph LibraryModule["📚 Library Module"]
+            PublishingModule[publishing.rs]
+            LibraryModule2[library.rs]
+            ResourceScanner[resource_scanner.rs]
+            ValidateResource[Validate Resource Hash]
+            ReadFile[Read File Content]
+            GetWorkspace[Get Workspace from DB]
+        end
+
+        subgraph GitHubClient["🌐 GitHub Client"]
+            GetClient[GitHubClient::from_keychain]
+            GetUser[get_user]
+            GetFileSHA[get_file_sha]
+            CreateUpdateFile[create_or_update_file]
+            HandleRateLimit[Handle Rate Limiting]
+            HandleErrors[Handle API Errors]
+        end
+
+        subgraph Database["💾 Database Operations"]
+            GetResource[Get Resource from DB]
+            GetProject[Get Project from DB]
+            GetCatalog[Get/Create Catalog]
+            CreateVariation[Create/Update Variation]
+            StoreCommitSHA[Store Commit SHA]
+        end
+    end
+
+    subgraph Keychain["🔑 OS Keychain"]
+        KeychainStore[(Stored GitHub Token)]
+    end
+
+    subgraph GitHubAPI["☁️ GitHub REST API"]
+        APIUser[GET /user]
+        APIContents[GET /repos/owner/repo/contents/path]
+        APIPut[PUT /repos/owner/repo/contents/path]
+        APIResponse[Return Commit Info]
+    end
+
+    subgraph GitHubRepo["📦 GitHub Repository"]
+        RepoStructure[Repository Structure]
+        KitsFolder[kits/]
+        WalkthroughsFolder[walkthroughs/]
+        AgentsFolder[agents/]
+        DiagramsFolder[diagrams/]
+    end
+
+    %% Frontend Flow
+    Dialog --> SelectWorkspace
+    SelectWorkspace --> InvokeListWorkspaces
+    SelectWorkspace --> SelectItems
+    SelectItems --> ScanResources
+    ScanResources --> InvokeScan
+    ScanResources --> MatchResources
+    MatchResources --> InvokeGetResources
+    MatchResources --> InvokePublish
+    InvokePublish --> ShowResults
+
+    %% IPC to Backend
+    InvokeScan --> ResourceScanner
+    InvokeGetResources --> GetResource
+    InvokePublish --> PublishingModule
+    InvokeListWorkspaces --> LibraryModule2
+
+    %% Publishing Flow
+    PublishingModule --> GetResource
+    GetResource --> GetProject
+    GetProject --> ValidateResource
+    ValidateResource --> ReadFile
+    ReadFile --> GetWorkspace
+    GetWorkspace --> GetClient
+
+    %% GitHub Client Operations
+    GetClient --> KeychainStore
+    KeychainStore -->|Retrieve Token| GetClient
+    GetClient --> GetUser
+    GetUser --> APIUser
+    GetUser -->|User Info| PublishingModule
+    PublishingModule --> GetFileSHA
+    GetFileSHA --> APIContents
+    APIContents -->|File SHA or None| GetFileSHA
+    GetFileSHA --> CreateUpdateFile
+    CreateUpdateFile --> HandleRateLimit
+    HandleRateLimit --> HandleErrors
+    HandleErrors --> APIPut
+    APIPut --> APIResponse
+    APIResponse -->|Commit SHA| CreateUpdateFile
+
+    %% Database Operations
+    CreateUpdateFile -->|Commit Info| GetCatalog
+    GetCatalog --> CreateVariation
+    CreateVariation --> StoreCommitSHA
+    StoreCommitSHA -->|Success| ShowResults
+
+    %% Repository Structure
+    APIPut --> RepoStructure
+    RepoStructure --> KitsFolder
+    RepoStructure --> WalkthroughsFolder
+    RepoStructure --> AgentsFolder
+    RepoStructure --> DiagramsFolder
+
+    %% Styling with BlueKit dark theme colors
+    classDef frontendGroup fill:#1e3a8a,stroke:#4287f5,stroke-width:2px
+    classDef ipcGroup fill:#0f766e,stroke:#4287f5,stroke-width:2px
+    classDef backendGroup fill:#6b21a8,stroke:#4287f5,stroke-width:2px
+    classDef githubGroup fill:#c2410c,stroke:#4287f5,stroke-width:2px
+    classDef keychainGroup fill:#4c1d95,stroke:#4287f5,stroke-width:2px
+    classDef databaseGroup fill:#155e75,stroke:#4287f5,stroke-width:2px
+    classDef repoGroup fill:#a16207,stroke:#4287f5,stroke-width:2px
+
+    class Dialog,SelectWorkspace,SelectItems,ScanResources,MatchResources,ShowResults frontendGroup
+    class InvokeScan,InvokeGetResources,InvokePublish,InvokeListWorkspaces ipcGroup
+    class PublishingModule,LibraryModule2,ResourceScanner,ValidateResource,ReadFile,GetWorkspace,GetClient,GetUser,GetFileSHA,CreateUpdateFile,HandleRateLimit,HandleErrors backendGroup
+    class APIUser,APIContents,APIPut,APIResponse githubGroup
+    class KeychainStore keychainGroup
+    class GetResource,GetProject,GetCatalog,CreateVariation,StoreCommitSHA databaseGroup
+    class RepoStructure,KitsFolder,WalkthroughsFolder,AgentsFolder,DiagramsFolder repoGroup
+```
